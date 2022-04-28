@@ -31,6 +31,13 @@ unprecedented performance of 73.8 and 65.8 mIoU, respectively.
 
 ![UDA over time](resources/uda_over_time_hrda.png)
 
+The more detailed domain-adaptive semantic segmentation of HRDA, compared to
+the previous state-of-the-art UDA method DAFormer, can also be observed in
+example predictions from the Cityscapes validation set.
+
+![Demo](resources/demo.gif)
+![Color Palette](resources/color_palette.png)
+
 For more information on HRDA, please check our
 [[Paper]](TODO).
 
