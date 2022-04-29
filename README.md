@@ -2,8 +2,8 @@
 
 **by [Lukas Hoyer](https://lhoyer.github.io/), [Dengxin Dai](https://vas.mpi-inf.mpg.de/dengxin/), and [Luc Van Gool](https://scholar.google.de/citations?user=TwMib_QAAAAJ&hl=en)**
 
-**[[Arxiv]](TODO)**
-**[[Paper]](TODO)**
+**[[Arxiv]](https://arxiv.org/abs/2204.13132)**
+**[[Paper]](https://arxiv.org/pdf/2204.13132)**
 
 ## Overview
 
@@ -39,15 +39,15 @@ example predictions from the Cityscapes validation set.
 ![Color Palette](resources/color_palette.png)
 
 For more information on HRDA, please check our
-[[Paper]](TODO).
+[[Paper]](https://arxiv.org/pdf/2204.13132).
 
 If you find HRDA useful in your research, please consider citing:
 
 ```
 @Article{hoyer2022hrda,
-  title={HRDA: Context-Aware High-Resolution Domain-Adaptive Semantic Segmentation},
+  title={{HRDA}: Context-Aware High-Resolution Domain-Adaptive Semantic Segmentation},
   author={Hoyer, Lukas and Dai, Dengxin and Van Gool, Luc},
-  journal={arXiv preprint arXiv:TODO},
+  journal={arXiv preprint arXiv:2204.13132},
   year={2022}
 }
 ```
