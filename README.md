@@ -5,6 +5,8 @@
 **[[Arxiv]](https://arxiv.org/abs/2204.13132)**
 **[[Paper]](https://arxiv.org/pdf/2204.13132)**
 
+:bell: We are happy to announce that HRDA was accepted at **ECCV22**. :bell:
+
 ## Overview
 
 **Unsupervised domain adaptation (UDA)** aims to adapt a model trained on
