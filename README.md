@@ -4,6 +4,8 @@
 
 **[[Arxiv]](https://arxiv.org/abs/2204.13132)**
 **[[Paper]](https://arxiv.org/pdf/2204.13132)**
+**[[Demo & Docker image]](https://replicate.com/lhoyer/hrda)**
+
 
 :bell: We are happy to announce that HRDA was accepted at **ECCV22**. :bell:
 
