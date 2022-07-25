@@ -360,6 +360,7 @@ def generate_experiment_cfgs(id):
         gta2cs = ('gtaHR',     'cityscapesHR', '1024x1024', 0.5 * (2 ** 2))
         syn2cs = ('synthiaHR', 'cityscapesHR', '1024x1024', 0.5 * (2 ** 2))
         dec, backbone = 'daformer_sepaspp', 'mitb5'
+        # dec, backbone = 'dlv2red', 'r101v1c'
         uda, rcs_T, plcrop = 'dacs_a999_fdthings', 0.01, 'v2'
         inference = 'slide'
         for dataset, architecture, sync_crop_size in [
@@ -387,7 +388,13 @@ def generate_experiment_cfgs(id):
             ('gtaCAugHR',   'cityscapesHR', '1024x1024',    f'{hrda}_dlv2red',  'r101v1c', 'minent', sgd),
             ('gta',         'cityscapes',   '512x512',      'dlv2red',          'r101v1c', 'dacs',   adamw),
             ('gtaHR',       'cityscapesHR', '1024x1024',    f'{hrda}_dlv2red',  'r101v1c', 'dacs',   adamw),
+            ('gta',         'cityscapes',   '512x512',      'dlv2red',          'r101v1c', 'daformer_uda',   adamw),
+            ('gtaHR',       'cityscapesHR', '1024x1024',    f'{hrda}_dlv2red',  'r101v1c', 'daformer_uda',   adamw),
         ]:
+            if uda == 'daformer_uda':
+                uda, rcs_T, plcrop = 'dacs_a999_fdthings', 0.01, 'v2'
+                if crop == '1024x1024':
+                    rcs_min_crop = 0.5 * (2 ** 2)
             for seed in seeds:
                 opt, lr, schedule, pmult = opt_hp
                 gpu_model = 'NVIDIATITANRTX' if 'HR' in source \
