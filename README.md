@@ -38,6 +38,9 @@ the previous state-of-the-art UDA method DAFormer, can also be observed in
 example predictions from the Cityscapes validation set.
 
 ![Demo](resources/demo.gif)
+
+https://user-images.githubusercontent.com/1277888/181128057-27b8039f-a4c9-4f6d-9aa8-9b7f364d8921.mp4
+
 ![Color Palette](resources/color_palette.png)
 
 For more information on HRDA, please check our
