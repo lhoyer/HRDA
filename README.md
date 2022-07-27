@@ -49,10 +49,10 @@ For more information on HRDA, please check our
 If you find HRDA useful in your research, please consider citing:
 
 ```
-@Article{hoyer2022hrda,
+@InProceedings{hoyer2022hrda,
   title={{HRDA}: Context-Aware High-Resolution Domain-Adaptive Semantic Segmentation},
   author={Hoyer, Lukas and Dai, Dengxin and Van Gool, Luc},
-  journal={arXiv preprint arXiv:2204.13132},
+  booktitle={Proceedings of the European Conference on Computer Vision (ECCV)},
   year={2022}
 }
 ```
