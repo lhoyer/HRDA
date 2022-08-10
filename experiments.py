@@ -324,7 +324,8 @@ def generate_experiment_cfgs(id):
             cfg['name'] += f'_s{seed}'
         cfg['name'] = cfg['name'].replace('.', '').replace('True', 'T') \
             .replace('False', 'F').replace('cityscapes', 'cs') \
-            .replace('synthia', 'syn')
+            .replace('synthia', 'syn') \
+            .replace('darkzurich', 'dzur')
         return cfg
 
     # -------------------------------------------------------------------------
@@ -522,6 +523,28 @@ def generate_experiment_cfgs(id):
             (gta2cs,   f'hrda1-512-0.1-sc0.25_{dec}', (512, 512)),  # s_c=4
             # (gta2cs, f'hrda1-512-0.1_{dec}',        (512, 512)),  # s_c=2; already run above for Tab. 3
             (gta2cs,   f'hrda1-512-0.1-sc0.75_{dec}', (512, 512)),  # s_c=1.33
+        ]:
+            for seed in seeds:
+                source, target, crop, rcs_min_crop = dataset
+                gpu_model = 'NVIDIATITANRTX'
+                cfg = config_from_vars()
+                cfgs.append(cfg)
+    # -------------------------------------------------------------------------
+    # Further Datasets
+    # -------------------------------------------------------------------------
+    elif id == 49:
+        seeds = [0, 1, 2]
+        #         source,          target,         crop,        rcs_min_crop
+        cs2acdc = ('cityscapesHR', 'acdcHR',       '1024x1024', 0.5 * (2 ** 2))
+        cs2dzur = ('cityscapesHR', 'darkzurichHR', '1024x1024', 0.5 * (2 ** 2))
+        dec, backbone = 'daformer_sepaspp', 'mitb5'
+        # Use plcrop=False as ACDC and DarkZurich have no rectification
+        # artifacts in contrast to Cityscapes.
+        uda, rcs_T, plcrop = 'dacs_a999_fdthings', 0.01, False
+        inference = 'slide'
+        for dataset, architecture, sync_crop_size in [
+            (cs2acdc, f'hrda1-512-0.1_{dec}', None),
+            (cs2dzur, f'hrda1-512-0.1_{dec}', None),
         ]:
             for seed in seeds:
                 source, target, crop, rcs_min_crop = dataset

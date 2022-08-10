@@ -47,6 +47,10 @@ def parse_args():
         default='same',
         help='Inference mode.')
     parser.add_argument(
+        '--test-set',
+        action='store_true',
+        help='Run inference on the test set')
+    parser.add_argument(
         '--hrda-out',
         choices=['', 'LR', 'HR', 'ATT'],
         default='',
@@ -155,6 +159,11 @@ def main():
         pass
     else:
         raise NotImplementedError(args.hrda_out)
+
+    if args.test_set:
+        for k in cfg.data.test:
+            if isinstance(cfg.data.test[k], str):
+                cfg.data.test[k] = cfg.data.test[k].replace('val', 'test')
 
     # init distributed env first, since logger depends on the dist info.
     if args.launcher == 'none':
