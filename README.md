@@ -59,7 +59,12 @@ If you find HRDA useful in your research, please consider citing:
 
 ## Comparison with SOTA
 
-|                     | GTA→Cityscapes(CS) | Synthia→CS | CS→ACDC | CS→DarkZurich |
+HRDA significantly outperforms previous works on several UDA benchmarks.
+This includes synthetic-to-real adaptation on GTA→Cityscapes and
+Synthia→Cityscapes as well as clear-to-adverse-weather adaptation on
+Cityscapes→ACDC and Cityscapes→DarkZurich.
+
+|                     | GTA→CS(val)    | Synthia→CS(val)    | CS→ACDC(test)   | CS→DarkZurich(test)   |
 |---------------------|----------------|--------------------|-----------------|-----------------------|
 | ADVENT [1]          | 45.5           | 41.2               | 32.7            | 29.7                  |
 | BDL [2]             | 48.5           | --                 | 37.7            | 30.8                  |
@@ -142,7 +147,7 @@ to `data/dark_zurich`.
 The final folder structure should look like this:
 
 ```none
-DAFormer
+HRDA
 ├── ...
 ├── data
 │   ├── acdc (optional)
@@ -186,7 +191,7 @@ python tools/convert_datasets/synthia.py data/synthia/ --nproc 8
 
 ## Testing & Predictions
 
-The provided HRDA checkpoint trained on GTA->Cityscapes
+The provided HRDA checkpoint trained on GTA→Cityscapes
 (already downloaded by `tools/download_checkpoints.sh`) can be tested on the
 Cityscapes validation set using:
 
@@ -227,12 +232,45 @@ More information about the available experiments and their assigned IDs, can be
 found in [experiments.py](experiments.py). The generated configs will be stored
 in `configs/generated/`.
 
-When training a model on Synthia->Cityscapes, please note that the
+When evaluating a model trained on Synthia→Cityscapes, please note that the
 evaluation script calculates the mIoU for all 19 Cityscapes classes. However,
 Synthia contains only labels for 16 of these classes. Therefore, it is a common
-practice in UDA to report the mIoU for Synthia->Cityscapes only on these 16
+practice in UDA to report the mIoU for Synthia→Cityscapes only on these 16
 classes. As the Iou for the 3 missing classes is 0, you can do the conversion
 `mIoU16 = mIoU19 * 19 / 16`.
+
+The results for Cityscapes→ACDC and Cityscapes→DarkZurich are reported on
+the test split of the target dataset. To generate the predictions for the test
+set, please run:
+
+```shell
+python -m tools.test path/to/config_file path/to/checkpoint_file --test-set --format-only --eval-option imgfile_prefix=labelTrainIds to_label_id=False
+```
+
+The predictions can be submitted to the public evaluation server of the
+respective dataset to obtain the test score.
+
+## Checkpoints
+
+Below, we provide checkpoints of HRDA for different benchmarks.
+As the results in the paper are provided as the mean over three random
+seeds, we provide the checkpoint with the median validation performance here.
+
+* [HRDA for GTA→Cityscapes](https://drive.google.com/file/d/1O6n1HearrXHZTHxNRWp8HCMyqbulKcSW/view?usp=sharing)
+* [HRDA for Synthia→Cityscapes](https://drive.google.com/file/d/1V6kSLq3FH8o-FJf-syiiQx6E74ML9Huw/view?usp=sharing)
+* [HRDA for Cityscapes→ACDC](https://drive.google.com/file/d/1Pwb1NAKx-WeVdhKEfafn29_JP4iEyKQM/view?usp=sharing)
+* [HRDA for Cityscapes→DarkZurich](https://drive.google.com/file/d/1QEfolITfZWA_gvtTtVgv8oa-exP9PEo0/view?usp=sharing)
+
+The checkpoints come with the training logs. Please note that:
+
+* The logs provide the mIoU for 19 classes. For Synthia→Cityscapes, it is
+  necessary to convert the mIoU to the 16 valid classes. Please, read the
+  section above for converting the mIoU.
+* The logs provide the mIoU on the validation set. For Cityscapes→ACDC and
+  Cityscapes→DarkZurich the results reported in the paper are calculated on the
+  test split. For DarkZurich, the performance significantly differs between
+  validation and test split. Please, read the section above on how to obtain
+  the test mIoU.
 
 ## Framework Structure
 
