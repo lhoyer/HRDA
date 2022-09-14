@@ -1,4 +1,6 @@
 # Obtained from: https://github.com/wasidennis/AdaptSegNet
+# Note from https://github.com/wasidennis/AdaptSegNet#note:
+# The model and code are available for non-commercial research purposes only.
 
 from torch import nn
 

@@ -1,5 +1,9 @@
 # Obtained from: https://github.com/lhoyer/DAFormer
 # Modifications: Support synchronized crop and valid_pseudo_mask
+# ---------------------------------------------------------------
+# Copyright (c) 2021-2022 ETH Zurich, Lukas Hoyer. All rights reserved.
+# Licensed under the Apache License, Version 2.0
+# ---------------------------------------------------------------
 
 import json
 import os.path as osp

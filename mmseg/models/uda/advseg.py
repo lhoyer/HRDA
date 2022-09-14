@@ -1,5 +1,7 @@
 # The adversarial domain adaptation is based on:
 # https://github.com/wasidennis/AdaptSegNet
+# Note from https://github.com/wasidennis/AdaptSegNet#note:
+# The model and code are available for non-commercial research purposes only.
 
 import os
 

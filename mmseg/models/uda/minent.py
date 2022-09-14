@@ -1,5 +1,11 @@
-# The entropy minimization is based on:
-# https://github.com/valeoai/ADVENT
+# ---------------------------------------------------------------
+# Copyright (c) 2022 ETH Zurich, Lukas Hoyer. All rights reserved.
+# Licensed under the Apache License, Version 2.0
+# ---------------------------------------------------------------
+
+# The entropy minimization is based on: https://github.com/valeoai/ADVENT
+# Copyright (c) 2019 Valeo. Licensed under the Apache License, Version 2.0
+# A copy of the license is available at resources/license_advent
 
 import os
 
