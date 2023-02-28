@@ -7,6 +7,8 @@
 
 :bell: We are happy to announce that HRDA was accepted at **ECCV22**. :bell:
 
+:bell: We are happy to announce that our follow-up work [MIC](https://github.com/lhoyer/MIC) on context-enhanced UDA was accepted at **CVPR23**. :bell:
+
 ## Overview
 
 **Unsupervised domain adaptation (UDA)** aims to adapt a model trained on
