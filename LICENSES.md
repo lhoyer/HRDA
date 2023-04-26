@@ -1,6 +1,6 @@
-HRDA: Copyright (c) 2022 ETH Zurich, Lukas Hoyer. All rights reserved.
+HRDA: Copyright (c) 2022-2023 ETH Zurich, Lukas Hoyer. All rights reserved.
 
-This project is released under the [Apache License 2.0](LICENSE), while some 
+This project is released under the [Apache License 2.0](LICENSE), while some
 specific features in this repository are with other licenses.
 Users should be careful about adopting these features in any commercial matters.
 
@@ -19,9 +19,15 @@ Users should be careful about adopting these features in any commercial matters.
 - Advent: Copyright (c) 2019, Valeo,
   licensed under the Apache License, Version 2.0 ([resources/license_advent](resources/license_advent))
     - parts of [mmseg/models/uda/minent.py](mmseg/models/uda/minent.py)
+- SHADE: Copyright (c) 2022,
+  licensed under the Apache License, Version 2.0 ([resources/license_shade](resources/license_shade))
+    - [mmseg/models/utils/style_hallucination.py](mmseg/models/utils/style_hallucination.py)
+    - [mmseg/models/utils/style_hallucination_hook.py](mmseg/models/utils/style_hallucination_hook.py)
+    - [mmseg/models/utils/farthest_point_sampling.py](mmseg/models/utils/farthest_point_sampling.py)
+    - style consistency in [mmseg/models/uda/dacs.py](mmseg/models/uda/dacs.py)
 
 This repository is based on:
 - DAFormer: Copyright (c) 2021-2022, ETH Zurich, Lukas Hoyer,
   licensed under the Apache License, Version 2.0 ([resources/license_daformer](resources/license_daformer))
-- MMSegmentation v0.16: Copyright (c) 2020, The MMSegmentation Authors, 
+- MMSegmentation v0.16: Copyright (c) 2020, The MMSegmentation Authors,
   licensed under the Apache License, Version 2.0 ([resources/license_mmseg](resources/license_mmseg))

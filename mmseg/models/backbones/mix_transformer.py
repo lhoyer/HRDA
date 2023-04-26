@@ -1,4 +1,5 @@
 # Obtained from: https://github.com/NVlabs/SegFormer
+# Modifications: Add style hallucination
 # ---------------------------------------------------------------
 # Copyright (c) 2021, NVIDIA Corporation. All rights reserved.
 #
@@ -16,6 +17,7 @@ from mmcv.runner import BaseModule, _load_checkpoint
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
 from mmseg.models.builder import BACKBONES
+from mmseg.models.utils.style_hallucination import StyleHallucination
 from mmseg.utils import get_root_logger
 
 
@@ -207,7 +209,8 @@ class MixVisionTransformer(BaseModule):
                  style=None,
                  pretrained=None,
                  init_cfg=None,
-                 freeze_patch_embed=False):
+                 freeze_patch_embed=False,
+                 style_hallucination_cfg=None):
         super().__init__(init_cfg)
 
         assert not (init_cfg and pretrained), \
@@ -323,6 +326,11 @@ class MixVisionTransformer(BaseModule):
         # self.head = nn.Linear(embed_dims[3], num_classes) \
         #     if num_classes > 0 else nn.Identity()
 
+        self.style_hallucination = None
+        if style_hallucination_cfg is not None:
+            self.style_hallucination = StyleHallucination(
+                **style_hallucination_cfg)
+
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -394,7 +402,7 @@ class MixVisionTransformer(BaseModule):
         self.head = nn.Linear(
             self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
-    def forward_features(self, x):
+    def forward_features(self, x, return_style=False):
         B = x.shape[0]
         outs = []
 
@@ -404,6 +412,12 @@ class MixVisionTransformer(BaseModule):
             x = blk(x, H, W)
         x = self.norm1(x)
         x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+        if return_style:
+            return x
+        if self.training and self.style_hallucination is not None:
+            x, x_style = self.style_hallucination(x)
+            x = torch.cat((x, x_style), dim=0)
+            B *= 2
         outs.append(x)
 
         # stage 2

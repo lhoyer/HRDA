@@ -1,6 +1,7 @@
 # Obtained from: https://github.com/open-mmlab/mmsegmentation/tree/v0.16.0
 # Modifications:
 # - Add ddp_wrapper from mmgen
+# - Add style hallucination hook
 
 import random
 import warnings
@@ -13,7 +14,8 @@ from mmcv.runner import build_optimizer, build_runner
 
 from mmseg.core import DistEvalHook, EvalHook
 from mmseg.core.ddp_wrapper import DistributedDataParallelWrapper
-from mmseg.datasets import build_dataloader, build_dataset
+from mmseg.datasets import UDADataset, build_dataloader, build_dataset
+from mmseg.models.utils.style_hallucination_hook import StyleHallucinationHook
 from mmseg.utils import get_root_logger
 
 
@@ -123,6 +125,29 @@ def train_segmentor(model,
         eval_cfg['by_epoch'] = cfg.runner['type'] != 'IterBasedRunner'
         eval_hook = DistEvalHook if distributed else EvalHook
         runner.register_hook(eval_hook(val_dataloader, **eval_cfg))
+
+    # register style hallucination hook
+    style_hook_cfg = cfg.get('style_hallucination_hook', None)
+    if style_hook_cfg is not None:
+        # Only load the necessary source data (and not target data)
+        # Also, this disables the undesired RCS for the style samples
+        assert isinstance(dataset[0], UDADataset)
+        style_dataset = dataset[0].source
+        style_data_loader = build_dataloader(
+            style_dataset,
+            style_hook_cfg.samples_per_gpu,
+            style_hook_cfg.workers_per_gpu,
+            # cfg.gpus will be ignored if distributed
+            len(cfg.gpu_ids),
+            dist=distributed,
+            seed=cfg.seed,
+            drop_last=True)
+
+        runner.register_hook(
+            StyleHallucinationHook(
+                style_data_loader,
+                by_epoch=cfg.runner['type'] != 'IterBasedRunner',
+                **style_hook_cfg))
 
     if cfg.resume_from:
         runner.resume(cfg.resume_from)

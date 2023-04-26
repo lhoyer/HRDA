@@ -1,4 +1,5 @@
 # Obtained from: https://github.com/lhoyer/DAFormer
+# Modifications: Add forward_style
 # ---------------------------------------------------------------
 # Copyright (c) 2021-2022 ETH Zurich, Lukas Hoyer. All rights reserved.
 # Licensed under the Apache License, Version 2.0
@@ -44,10 +45,13 @@ class UDADecorator(BaseSegmentor):
         """Extract features from images."""
         return self.get_model().extract_feat(img)
 
-    def encode_decode(self, img, img_metas):
+    def encode_decode(self, img, img_metas, upscale_pred=True):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
-        return self.get_model().encode_decode(img, img_metas)
+        return self.get_model().encode_decode(img, img_metas, upscale_pred)
+
+    def forward_style(self, img, img_metas, **kwargs):
+        return self.get_model().forward_style(img, img_metas, **kwargs)
 
     def forward_train(self,
                       img,

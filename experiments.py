@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------
-# Copyright (c) 2022 ETH Zurich, Lukas Hoyer. All rights reserved.
+# Copyright (c) 2022-2023 ETH Zurich, Lukas Hoyer. All rights reserved.
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
@@ -247,6 +247,8 @@ def generate_experiment_cfgs(id):
             samples_per_gpu=batch_size,
             workers_per_gpu=workers_per_gpu,
             train={})
+        if use_dg_dataset:
+            cfg['data']['train']['type'] = 'DGDataset'
         # DAFormer legacy cropping that only works properly if the training
         # crop has the height of the (resized) target image.
         if 'dacs' in uda and plcrop in [True, 'v1']:
@@ -266,6 +268,23 @@ def generate_experiment_cfgs(id):
         if 'dacs' in uda and sync_crop_size_mod is not None:
             cfg.setdefault('data', {}).setdefault('train', {})
             cfg['data']['train']['sync_crop_size'] = sync_crop_size_mod
+        if shade:
+            cfg.setdefault('uda', {})
+            # Following https://github.com/HeliosZhao/SHADE/blob/master/train.py
+            cfg['uda']['style_consistency_lambda'] = 10.0
+            cfg['model']['backbone']['style_hallucination_cfg'] = dict(
+                concentration_coeff=0.0156,
+                base_style_num=64,
+                style_dim=64,
+            )
+            cfg['style_hallucination_hook'] = dict(
+                interval=4000,
+                samples_per_gpu=2,
+                workers_per_gpu=6,
+            )
+        if 'dacs' in uda and share_src_backward:
+            cfg.setdefault('uda', {})
+            cfg['uda']['share_src_backward'] = True
 
         # Setup optimizer and schedule
         if 'dacs' in uda or 'minent' in uda or 'advseg' in uda:
@@ -291,6 +310,8 @@ def generate_experiment_cfgs(id):
 
         # Construct config name
         uda_mod = uda
+        if use_dg_dataset:
+            uda_mod = 'dg' + uda_mod
         if 'dacs' in uda and rcs_T is not None:
             uda_mod += f'_rcs{rcs_T}'
             if rcs_min_crop != 0.5:
@@ -306,6 +327,10 @@ def generate_experiment_cfgs(id):
                 uda_mod += f'_cpl{plcrop[1:]}'
             else:
                 raise NotImplementedError(plcrop)
+        if 'dacs' in uda and shade:
+            uda_mod += f'_shade'
+        if 'dacs' in uda and share_src_backward:
+            uda_mod += '_shb'
         crop_name = f'_{crop}' if crop != '512x512' else ''
         cfg['name'] = f'{source}2{target}{crop_name}_{uda_mod}_' \
                       f'{architecture_mod}_{backbone}_{schedule}'
@@ -344,10 +369,14 @@ def generate_experiment_cfgs(id):
     datasets = [
         ('gta', 'cityscapes'),
     ]
+    use_dg_dataset = False
     architecture = None
     workers_per_gpu = 1
+    share_src_backward = False
+
     rcs_T = None
     rcs_min_crop = 0.5
+    shade = False
     plcrop = False
     inference = 'whole'
     sync_crop_size = None
@@ -552,6 +581,41 @@ def generate_experiment_cfgs(id):
             for seed in seeds:
                 source, target, crop, rcs_min_crop = dataset
                 gpu_model = 'NVIDIATITANRTX'
+                cfg = config_from_vars()
+                cfgs.append(cfg)
+    # -------------------------------------------------------------------------
+    # DG Extension
+    # -------------------------------------------------------------------------
+    elif id == 50:
+        seeds = [0, 1, 2]
+        use_dg_dataset = True
+        gta2cs = ('gtaCAug', 'cityscapes', '512x512', 0.5)
+        gtaHR2csHR = ('gtaCAugHR', 'cityscapesHR', '1024x1024', 0.5 * (2 ** 2))
+        for architecture, backbone, uda, rcs_T, schedule, shade in [
+            # We don't need dacs_a999_* here because srconly has no EMA teacher
+            # DAFormer w/o SHADE
+            # ('daformer_sepaspp',               'mitb5', 'dacs_fdthings_srconly', 0.01, 'poly10warm', False),
+            # HRDA w/o SHADE
+            # ('hrda1-512-0.1_daformer_sepaspp', 'mitb5', 'dacs_fdthings_srconly', 0.01, 'poly10warm', False),
+            # DAFormer w/ SHADE
+            ('daformer_sepaspp',               'mitb5', 'dacs_fdthings_srconly', 0.01, 'poly10warm', True),
+            # HRDA w/ SHADE (384x384 detail crop is necessary to fit SHADE into 24 GB memory)
+            ('hrda1-384-0.1_daformer_sepaspp', 'mitb5', 'dacs_fdthings_srconly', 0.01, 'poly10warm', True),
+        ]:
+            for seed in seeds:
+                # Reset to default
+                source, target, crop, rcs_min_crop = gta2cs
+                inference = 'whole'
+                gpu_model = 'NVIDIAGeForceRTX2080Ti'
+                share_src_backward = False
+                # Config specific modifications
+                if 'hrda' in architecture:
+                    source, target, crop, rcs_min_crop = gtaHR2csHR
+                    inference = 'slide'
+                    gpu_model = 'NVIDIATITANRTX'
+                if shade:
+                    share_src_backward = True
+                    gpu_model = 'NVIDIATITANRTX'
                 cfg = config_from_vars()
                 cfgs.append(cfg)
     else:

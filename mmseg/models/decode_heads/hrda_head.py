@@ -218,12 +218,15 @@ class HRDAHead(BaseDecodeHead):
                       img_metas,
                       gt_semantic_seg,
                       train_cfg,
-                      seg_weight=None):
+                      seg_weight=None,
+                      return_logits=False):
         """Forward function for training."""
         if self.enable_hr_crop:
             assert self.hr_crop_box is not None
         seg_logits = self.forward(inputs)
         losses = self.losses(seg_logits, gt_semantic_seg, seg_weight)
+        if return_logits:
+            losses['logits'] = seg_logits
         self.reset_crop()
         return losses
 

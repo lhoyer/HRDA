@@ -3,8 +3,11 @@
 # - Delete tensors after usage to free GPU memory
 # - Add HRDA debug visualizations
 # - Support ImageNet feature distance for LR and HR predictions of HRDA
+# - Add style consistency loss
+# - Add source only training
+# - Add share_src_backward
 # ---------------------------------------------------------------
-# Copyright (c) 2021-2022 ETH Zurich, Lukas Hoyer. All rights reserved.
+# Copyright (c) 2021-2023 ETH Zurich, Lukas Hoyer. All rights reserved.
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
@@ -23,6 +26,7 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from timm.models.layers import DropPath
+from torch.nn import functional as F
 from torch.nn.modules.dropout import _DropoutNd
 
 from mmseg.core import add_prefix
@@ -62,10 +66,12 @@ class DACS(UDADecorator):
         super(DACS, self).__init__(**cfg)
         self.local_iter = 0
         self.max_iters = cfg['max_iters']
+        self.source_only = cfg['source_only']
         self.alpha = cfg['alpha']
         self.pseudo_threshold = cfg['pseudo_threshold']
         self.psweight_ignore_top = cfg['pseudo_weight_ignore_top']
         self.psweight_ignore_bottom = cfg['pseudo_weight_ignore_bottom']
+        self.share_src_backward = cfg['share_src_backward']
         self.fdist_lambda = cfg['imnet_feature_dist_lambda']
         self.fdist_classes = cfg['imnet_feature_dist_classes']
         self.fdist_scale_min_ratio = cfg['imnet_feature_dist_scale_min_ratio']
@@ -74,6 +80,7 @@ class DACS(UDADecorator):
         self.blur = cfg['blur']
         self.color_jitter_s = cfg['color_jitter_strength']
         self.color_jitter_p = cfg['color_jitter_probability']
+        self.style_consistency_lambda = cfg['style_consistency_lambda']
         self.debug_img_interval = cfg['debug_img_interval']
         self.print_grad_magnitude = cfg['print_grad_magnitude']
         assert self.mix == 'class'
@@ -83,7 +90,8 @@ class DACS(UDADecorator):
 
         self.class_probs = {}
         ema_cfg = deepcopy(cfg['model'])
-        self.ema_model = build_segmentor(ema_cfg)
+        if not self.source_only:
+            self.ema_model = build_segmentor(ema_cfg)
 
         if self.enable_fdist:
             self.imnet_model = build_segmentor(deepcopy(cfg['model']))
@@ -97,6 +105,8 @@ class DACS(UDADecorator):
         return get_module(self.imnet_model)
 
     def _init_ema_weights(self):
+        if self.source_only:
+            return
         for param in self.get_ema_model().parameters():
             param.detach_()
         mp = list(self.get_model().parameters())
@@ -108,6 +118,8 @@ class DACS(UDADecorator):
                 mcp[i].data[:] = mp[i].data[:].clone()
 
     def _update_ema(self, iter):
+        if self.source_only:
+            return
         alpha_teacher = min(1 - 1 / (iter + 1), self.alpha)
         for ema_param, param in zip(self.get_ema_model().parameters(),
                                     self.get_model().parameters()):
@@ -238,19 +250,39 @@ class DACS(UDADecorator):
         return feat_loss, feat_log
 
     def update_debug_state(self):
-        if self.local_iter % self.debug_img_interval == 0:
-            self.get_model().decode_head.debug = True
-            self.get_ema_model().decode_head.debug = True
-        else:
-            self.get_model().decode_head.debug = False
-            self.get_ema_model().decode_head.debug = False
+        debug = self.local_iter % self.debug_img_interval == 0
+        self.get_model().decode_head.debug = debug
+        if not self.source_only:
+            self.get_ema_model().decode_head.debug = debug
+
+    def style_consistency(self, x):
+        # Obtained from: https://github.com/HeliosZhao/SHADE/blob/ea4214ad4eaa1ba2210656bff315afb6c6f50e28/train.py#L424  # noqa
+        outputs_sm = F.softmax(x, dim=1)
+        # 2B,C,H,W first B is x, last B is x_new
+        B = outputs_sm.shape[0] // 2
+        im_prob = outputs_sm[:B]
+        aug_prob = outputs_sm[B:]
+
+        aug_prob = aug_prob.permute(0, 2, 3, 1).reshape(-1, self.num_classes)
+        im_prob = im_prob.permute(0, 2, 3, 1).reshape(-1, self.num_classes)
+
+        p_mixture = torch.clamp((aug_prob + im_prob) / 2., 1e-7, 1).log()
+        consistency_loss = self.style_consistency_lambda * (
+            F.kl_div(p_mixture, aug_prob, reduction='batchmean') +
+            F.kl_div(p_mixture, im_prob, reduction='batchmean')) / 2.
+
+        sc_loss, sc_log = self._parse_losses(
+            {'loss_style_consistency': consistency_loss})
+        sc_log.pop('loss', None)
+
+        return sc_loss, sc_log
 
     def forward_train(self,
                       img,
                       img_metas,
                       gt_semantic_seg,
-                      target_img,
-                      target_img_metas,
+                      target_img=None,
+                      target_img_metas=None,
                       rare_class=None,
                       valid_pseudo_mask=None):
         """Forward function for training.
@@ -271,6 +303,9 @@ class DACS(UDADecorator):
         log_vars = {}
         batch_size = img.shape[0]
         dev = img.device
+        if self.source_only:
+            target_img = None
+            target_img_metas = None
 
         # Init/update ema model
         if self.local_iter == 0:
@@ -296,38 +331,80 @@ class DACS(UDADecorator):
         }
 
         # Train on source images
+        if self.get_model().backbone.style_hallucination is not None:
+            # Duplicate ground truth for additional
+            # stylized outputs from backbone
+            gt_semantic_seg = torch.cat((gt_semantic_seg, gt_semantic_seg),
+                                        dim=0)
         clean_losses = self.get_model().forward_train(
-            img, img_metas, gt_semantic_seg, return_feat=True)
+            img,
+            img_metas,
+            gt_semantic_seg,
+            return_feat=True,
+            return_logits=self.style_consistency_lambda > 0)
+        if self.style_consistency_lambda > 0 and \
+                isinstance(self.get_model(), HRDAEncoderDecoder):
+            # Only use the fused HRDA logits
+            clean_losses['decode.logits'] = clean_losses['decode.logits'][0]
         src_feat = clean_losses.pop('features')
         seg_debug['Source'] = self.get_model().decode_head.debug_output
         clean_loss, clean_log_vars = self._parse_losses(clean_losses)
         log_vars.update(clean_log_vars)
-        clean_loss.backward(retain_graph=self.enable_fdist)
-        if self.print_grad_magnitude:
-            params = self.get_model().backbone.parameters()
-            seg_grads = [
-                p.grad.detach().clone() for p in params if p.grad is not None
-            ]
-            grad_mag = calc_grad_magnitude(seg_grads)
-            mmcv.print_log(f'Seg. Grad.: {grad_mag}', 'mmseg')
+        if not self.share_src_backward:
+            clean_loss.backward(retain_graph=self.enable_fdist)
+            if self.print_grad_magnitude:
+                params = self.get_model().backbone.parameters()
+                seg_grads = [
+                    p.grad.detach().clone() for p in params
+                    if p.grad is not None
+                ]
+                grad_mag = calc_grad_magnitude(seg_grads)
+                mmcv.print_log(f'Seg. Grad.: {grad_mag}', 'mmseg')
 
         # ImageNet feature distance
         if self.enable_fdist:
-            feat_loss, feat_log = self.calc_feat_dist(img, gt_semantic_seg,
+            if self.style_consistency_lambda > 0:
+                fdist_img = torch.cat((img, img), dim=0)
+            else:
+                fdist_img = img
+            feat_loss, feat_log = self.calc_feat_dist(fdist_img,
+                                                      gt_semantic_seg,
                                                       src_feat)
             log_vars.update(add_prefix(feat_log, 'src'))
-            feat_loss.backward()
-            if self.print_grad_magnitude:
-                params = self.get_model().backbone.parameters()
-                fd_grads = [
-                    p.grad.detach() for p in params if p.grad is not None
-                ]
-                fd_grads = [g2 - g1 for g1, g2 in zip(seg_grads, fd_grads)]
-                grad_mag = calc_grad_magnitude(fd_grads)
-                mmcv.print_log(f'Fdist Grad.: {grad_mag}', 'mmseg')
+            if self.share_src_backward:
+                clean_loss = clean_loss + feat_loss
+            else:
+                feat_loss.backward()
+                if self.print_grad_magnitude:
+                    params = self.get_model().backbone.parameters()
+                    fd_grads = [
+                        p.grad.detach() for p in params if p.grad is not None
+                    ]
+                    fd_grads = [g2 - g1 for g1, g2 in zip(seg_grads, fd_grads)]
+                    grad_mag = calc_grad_magnitude(fd_grads)
+                    mmcv.print_log(f'Fdist Grad.: {grad_mag}', 'mmseg')
+
+        # Style Consistency
+        if self.style_consistency_lambda > 0:
+            seg_logits = clean_losses.pop('decode.logits')
+            sc_loss, sc_log = self.style_consistency(seg_logits)
+            assert self.share_src_backward
+            clean_loss = clean_loss + sc_loss
+            log_vars.update(add_prefix(sc_log, 'style'))
+
+        # Shared source backward
+        if self.share_src_backward:
+            clean_loss.backward()
         del src_feat, clean_loss
         if self.enable_fdist:
             del feat_loss
+        if self.style_consistency_lambda > 0:
+            del sc_loss
+
+        # Skip domain adaptation in source-only mode
+        if self.source_only:
+            self.local_iter += 1
+            return log_vars
 
         # Generate pseudo-label
         for m in self.get_ema_model().modules():
@@ -381,7 +458,12 @@ class DACS(UDADecorator):
 
         # Train on mixed images
         mix_losses = self.get_model().forward_train(
-            mixed_img, img_metas, mixed_lbl, pseudo_weight, return_feat=False)
+            mixed_img,
+            img_metas,
+            mixed_lbl,
+            pseudo_weight,
+            return_feat=False,
+        )
         seg_debug['Mix'] = self.get_model().decode_head.debug_output
         mix_losses = add_prefix(mix_losses, 'mix')
         mix_loss, mix_log_vars = self._parse_losses(mix_losses)

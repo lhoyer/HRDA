@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------
-# Copyright (c) 2022 ETH Zurich, Lukas Hoyer. All rights reserved.
+# Copyright (c) 2022-2023 ETH Zurich, Lukas Hoyer. All rights reserved.
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
@@ -159,7 +159,7 @@ class HRDAEncoderDecoder(EncoderDecoder):
             scaled_img = self.resize(img, self.feature_scale)
             return self.extract_unscaled_feat(scaled_img)
 
-    def encode_decode(self, img, img_metas):
+    def encode_decode(self, img, img_metas, upscale_pred=True):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
         mres_feats = []
@@ -177,11 +177,12 @@ class HRDAEncoderDecoder(EncoderDecoder):
                 self.decode_head.debug_output[f'Img {i} Scale {s}'] = \
                     scaled_img.detach()
         out = self._decode_head_forward_test(mres_feats, img_metas)
-        out = resize(
-            input=out,
-            size=img.shape[2:],
-            mode='bilinear',
-            align_corners=self.align_corners)
+        if upscale_pred:
+            out = resize(
+                input=out,
+                size=img.shape[2:],
+                mode='bilinear',
+                align_corners=self.align_corners)
         return out
 
     def _forward_train_features(self, img):
@@ -212,12 +213,21 @@ class HRDAEncoderDecoder(EncoderDecoder):
             mres_feats.append(self.extract_unscaled_feat(scaled_img))
         return mres_feats, prob_vis
 
+    def forward_style(self, img, img_metas, **kwargs):
+        scaled_img = resize(
+            input=img,
+            scale_factor=self.feature_scale,
+            mode='bilinear',
+            align_corners=self.align_corners)
+        return self.backbone.forward_features(scaled_img, return_style=True)
+
     def forward_train(self,
                       img,
                       img_metas,
                       gt_semantic_seg,
                       seg_weight=None,
-                      return_feat=False):
+                      return_feat=False,
+                      return_logits=False):
         """Forward function for training.
 
         Args:
@@ -248,7 +258,8 @@ class HRDAEncoderDecoder(EncoderDecoder):
 
         loss_decode = self._decode_head_forward_train(mres_feats, img_metas,
                                                       gt_semantic_seg,
-                                                      seg_weight)
+                                                      seg_weight,
+                                                      return_logits)
         losses.update(loss_decode)
 
         if self.decode_head.debug and prob_vis is not None:

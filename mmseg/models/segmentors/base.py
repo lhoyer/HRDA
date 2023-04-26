@@ -1,4 +1,5 @@
 # Obtained from: https://github.com/open-mmlab/mmsegmentation/tree/v0.16.0
+# Modifications: Add forward_style
 
 import warnings
 from abc import ABCMeta, abstractmethod
@@ -40,7 +41,7 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def encode_decode(self, img, img_metas):
+    def encode_decode(self, img, img_metas, upscale_pred=True):
         """Placeholder for encode images with backbone and decode into a
         semantic segmentation map of the same size as input."""
         pass
@@ -48,6 +49,11 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
     @abstractmethod
     def forward_train(self, imgs, img_metas, **kwargs):
         """Placeholder for Forward function for training."""
+        pass
+
+    @abstractmethod
+    def forward_style(self, imgs, img_metas, **kwargs):
+        """Placeholder for Forward function for style extraction."""
         pass
 
     @abstractmethod
@@ -95,7 +101,12 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
             return self.aug_test(imgs, img_metas, **kwargs)
 
     @auto_fp16(apply_to=('img', ))
-    def forward(self, img, img_metas, return_loss=True, **kwargs):
+    def forward(self,
+                img,
+                img_metas,
+                return_loss=True,
+                return_style=False,
+                **kwargs):
         """Calls either :func:`forward_train` or :func:`forward_test` depending
         on whether ``return_loss`` is ``True``.
 
@@ -105,8 +116,11 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         should be double nested (i.e.  List[Tensor], List[List[dict]]), with
         the outer list indicating test time augmentations.
         """
+        assert not (return_loss and return_style)
         if return_loss:
             return self.forward_train(img, img_metas, **kwargs)
+        elif return_style:
+            return self.forward_style(img, img_metas, **kwargs)
         else:
             return self.forward_test(img, img_metas, **kwargs)
 

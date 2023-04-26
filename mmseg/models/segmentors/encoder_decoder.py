@@ -1,5 +1,7 @@
 # Obtained from: https://github.com/open-mmlab/mmsegmentation/tree/v0.16.0
-# Modifications: Support for seg_weight and forward_with_aux
+# Modifications:
+# - Support for seg_weight and forward_with_aux
+# - Add forward_style
 
 import torch
 import torch.nn as nn
@@ -72,16 +74,17 @@ class EncoderDecoder(BaseSegmentor):
     def generate_pseudo_label(self, img, img_metas):
         return self.encode_decode(img, img_metas)
 
-    def encode_decode(self, img, img_metas):
+    def encode_decode(self, img, img_metas, upscale_pred=True):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
         x = self.extract_feat(img)
         out = self._decode_head_forward_test(x, img_metas)
-        out = resize(
-            input=out,
-            size=img.shape[2:],
-            mode='bilinear',
-            align_corners=self.align_corners)
+        if upscale_pred:
+            out = resize(
+                input=out,
+                size=img.shape[2:],
+                mode='bilinear',
+                align_corners=self.align_corners)
         return out
 
     def forward_with_aux(self, img, img_metas):
@@ -113,14 +116,15 @@ class EncoderDecoder(BaseSegmentor):
                                    x,
                                    img_metas,
                                    gt_semantic_seg,
-                                   seg_weight=None):
+                                   seg_weight=None,
+                                   return_logits=False):
         """Run forward function and calculate loss for decode head in
         training."""
         losses = dict()
         loss_decode = self.decode_head.forward_train(x, img_metas,
                                                      gt_semantic_seg,
                                                      self.train_cfg,
-                                                     seg_weight)
+                                                     seg_weight, return_logits)
 
         losses.update(add_prefix(loss_decode, 'decode'))
         return losses
@@ -158,12 +162,16 @@ class EncoderDecoder(BaseSegmentor):
 
         return seg_logit
 
+    def forward_style(self, img, img_metas, **kwargs):
+        return self.backbone.forward_features(img, return_style=True)
+
     def forward_train(self,
                       img,
                       img_metas,
                       gt_semantic_seg,
                       seg_weight=None,
-                      return_feat=False):
+                      return_feat=False,
+                      return_logits=False):
         """Forward function for training.
 
         Args:
@@ -187,7 +195,8 @@ class EncoderDecoder(BaseSegmentor):
 
         loss_decode = self._decode_head_forward_train(x, img_metas,
                                                       gt_semantic_seg,
-                                                      seg_weight)
+                                                      seg_weight,
+                                                      return_logits)
         losses.update(loss_decode)
 
         if self.with_auxiliary_head:

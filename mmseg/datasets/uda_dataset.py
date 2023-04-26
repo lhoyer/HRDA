@@ -1,7 +1,9 @@
 # Obtained from: https://github.com/lhoyer/DAFormer
-# Modifications: Support synchronized crop and valid_pseudo_mask
+# Modifications:
+# - Support synchronized crop and valid_pseudo_mask
+# - Disentangle RCS source sampling and random target sampling
 # ---------------------------------------------------------------
-# Copyright (c) 2021-2022 ETH Zurich, Lukas Hoyer. All rights reserved.
+# Copyright (c) 2021-2023 ETH Zurich, Lukas Hoyer. All rights reserved.
 # Licensed under the Apache License, Version 2.0
 # ---------------------------------------------------------------
 
@@ -70,6 +72,9 @@ class UDADataset(object):
         assert target.PALETTE == source.PALETTE
 
         self.sync_crop_size = cfg.get('sync_crop_size')
+        self._setup_rcs(cfg)
+
+    def _setup_rcs(self, cfg):
         rcs_cfg = cfg.get('rare_class_sampling')
         self.rcs_enabled = rcs_cfg is not None
         if self.rcs_enabled:
@@ -120,7 +125,7 @@ class UDADataset(object):
                     stack=s[key]._stack)
         return s1, s2
 
-    def get_rare_class_sample(self):
+    def get_rare_class_source_sample(self):
         c = np.random.choice(self.rcs_classes, p=self.rcs_classprob)
         f1 = np.random.choice(self.samples_with_class[c])
         i1 = self.file_to_idx[f1]
@@ -136,9 +141,16 @@ class UDADataset(object):
                 # preprocessing pipeline to the loaded image, which includes
                 # RandomCrop, and results in a new crop of the image.
                 s1 = self.source[i1]
-        i2 = np.random.choice(range(len(self.target)))
-        s2 = self.target[i2]
+        return s1
 
+    def __getitem__(self, idx):
+        if self.rcs_enabled:
+            s1 = self.get_rare_class_source_sample()
+            i2 = np.random.choice(range(len(self.target)))
+            s2 = self.target[i2]
+        else:
+            s1 = self.source[idx // len(self.target)]
+            s2 = self.target[idx % len(self.target)]
         # Before synchronized_crop(), s1 and s2 are cropped independently from
         # the entire image when calling s1=self.source[i1] and
         # s2=self.target[i2]. This corresponds to the original implementation
@@ -157,21 +169,6 @@ class UDADataset(object):
         if 'valid_pseudo_mask' in s2:
             out['valid_pseudo_mask'] = s2['valid_pseudo_mask']
         return out
-
-    def __getitem__(self, idx):
-        if self.rcs_enabled:
-            return self.get_rare_class_sample()
-        else:
-            s1 = self.source[idx // len(self.target)]
-            s2 = self.target[idx % len(self.target)]
-            s1, s2 = self.synchronized_crop(s1, s2)
-            out = {
-                **s1, 'target_img_metas': s2['img_metas'],
-                'target_img': s2['img']
-            }
-            if 'valid_pseudo_mask' in s2:
-                out['valid_pseudo_mask'] = s2['valid_pseudo_mask']
-            return out
 
     def __len__(self):
         return len(self.source) * len(self.target)

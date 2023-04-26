@@ -7,10 +7,12 @@
 # Baseline UDA
 uda = dict(
     type='DACS',
+    source_only=False,
     alpha=0.99,
     pseudo_threshold=0.968,
     pseudo_weight_ignore_top=0,
     pseudo_weight_ignore_bottom=0,
+    share_src_backward=False,
     imnet_feature_dist_lambda=0,
     imnet_feature_dist_classes=None,
     imnet_feature_dist_scale_min_ratio=None,
@@ -18,6 +20,7 @@ uda = dict(
     blur=True,
     color_jitter_strength=0.2,
     color_jitter_probability=0.2,
+    style_consistency_lambda=0,
     debug_img_interval=1000,
     print_grad_magnitude=False,
 )

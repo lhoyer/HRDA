@@ -81,6 +81,7 @@ def single_gpu_test(model,
 
                 if out_dir:
                     out_file = osp.join(out_dir, img_meta['ori_filename'])
+                    out_file = out_file.replace('.jpg', '.png')
                 else:
                     out_file = None
 

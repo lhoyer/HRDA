@@ -2,9 +2,13 @@
 # Modifications:
 # - Modification of config and checkpoint to support legacy models
 # - Add inference mode and HRDA output flag
+# - Add testing on other datasets, model parts, and dataset splits
+# - Save evaluation results to json file
 
 import argparse
+import json
 import os
+from copy import deepcopy
 
 import mmcv
 import torch
@@ -22,6 +26,8 @@ def update_legacy_cfg(cfg):
     # The saved json config does not differentiate between list and tuple
     cfg.data.test.pipeline[1]['img_scale'] = tuple(
         cfg.data.test.pipeline[1]['img_scale'])
+    cfg.data.val.pipeline[1]['img_scale'] = tuple(
+        cfg.data.val.pipeline[1]['img_scale'])
     # Support legacy checkpoints
     if cfg.model.decode_head.type == 'UniHead':
         cfg.model.decode_head.type = 'DAFormerHead'
@@ -43,9 +49,26 @@ def parse_args():
         '--aug-test', action='store_true', help='Use Flip and Multi scale aug')
     parser.add_argument(
         '--inference-mode',
-        choices=['same', 'whole', 'slide'],
+        choices=[
+            'same',
+            'whole',
+            'slide',
+        ],
         default='same',
         help='Inference mode.')
+    parser.add_argument('--dataset', default='Config')
+    parser.add_argument(
+        '--model',
+        choices=[
+            'model',
+            'ema_model',
+        ],
+        default='model',
+        help='Submodel to evaluate.')
+    parser.add_argument(
+        '--train-set',
+        action='store_true',
+        help='Run inference on the train set')
     parser.add_argument(
         '--test-set',
         action='store_true',
@@ -160,7 +183,15 @@ def main():
     else:
         raise NotImplementedError(args.hrda_out)
 
+    assert not (args.train_set and args.test_set)
+    eval_set = 'val'
+    if args.train_set:
+        eval_set = 'train'
+        for k in cfg.data.test:
+            if isinstance(cfg.data.test[k], str):
+                cfg.data.test[k] = cfg.data.test[k].replace('val', 'train')
     if args.test_set:
+        eval_set = 'test'
         for k in cfg.data.test:
             if isinstance(cfg.data.test[k], str):
                 cfg.data.test[k] = cfg.data.test[k].replace('val', 'test')
@@ -174,7 +205,37 @@ def main():
 
     # build the dataloader
     # TODO: support multiple images per gpu (only minor changes are needed)
-    dataset = build_dataset(cfg.data.test)
+    if args.dataset == 'Config':
+        dataset = build_dataset(cfg.data.test)
+    elif args.dataset == 'Cityscapes':
+        pipeline = deepcopy(cfg.data.test.pipeline)
+        dataset = build_dataset(
+            dict(
+                type='CityscapesDataset',
+                data_root='data/cityscapes/',
+                img_dir='leftImg8bit/val',
+                ann_dir='gtFine/val',
+                pipeline=pipeline))
+    elif args.dataset == 'BDD100K':
+        pipeline = deepcopy(cfg.data.test.pipeline)
+        dataset = build_dataset(
+            dict(
+                type='BDD100KDataset',
+                data_root='data/bdd100k',
+                img_dir='images/10k/val',
+                ann_dir='labels/sem_seg/masks/val',
+                pipeline=pipeline))
+    elif args.dataset == 'Mapillary':
+        pipeline = deepcopy(cfg.data.test.pipeline)
+        dataset = build_dataset(
+            dict(
+                type='MapillaryDataset',
+                data_root='data/mapillary',
+                img_dir='validation/images',
+                ann_dir='validation/labels',
+                pipeline=pipeline))
+    else:
+        raise NotImplementedError(args.dataset)
     data_loader = build_dataloader(
         dataset,
         samples_per_gpu=1,
@@ -192,7 +253,7 @@ def main():
         model,
         args.checkpoint,
         map_location='cpu',
-        revise_keys=[(r'^module\.', ''), ('model.', '')])
+        revise_keys=[(r'^module\.', ''), (f'{args.model}.', '')])
     if 'CLASSES' in checkpoint.get('meta', {}):
         model.CLASSES = checkpoint['meta']['CLASSES']
     else:
@@ -229,7 +290,19 @@ def main():
         if args.format_only:
             dataset.format_results(outputs, **kwargs)
         if args.eval:
-            dataset.evaluate(outputs, args.eval, **kwargs)
+            res = dataset.evaluate(outputs, args.eval, **kwargs)
+            if args.dataset == 'Config':
+                res_file = args.checkpoint.replace(
+                    '.pth', f'_{args.model}_{eval_set}_iou.json')
+            else:
+                res_file = args.checkpoint.replace(
+                    '.pth', f'_{args.model}_{args.dataset}_'
+                    f'{eval_set}_iou.json')
+            assert res_file != args.checkpoint
+            with open(res_file, 'w') as fp:
+                json.dump(res, fp, indent=4)
+            print([k for k, v in res.items() if 'IoU' in k])
+            print([round(v * 100, 1) for k, v in res.items() if 'IoU' in k])
 
 
 if __name__ == '__main__':
