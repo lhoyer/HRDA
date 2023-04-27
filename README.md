@@ -3,13 +3,13 @@
 **by [Lukas Hoyer](https://lhoyer.github.io/), [Dengxin Dai](https://vas.mpi-inf.mpg.de/dengxin/), and [Luc Van Gool](https://scholar.google.de/citations?user=TwMib_QAAAAJ&hl=en)**
 
 **[[ECCV22 Paper]](https://arxiv.org/pdf/2204.13132)**
-**[[Extension Paper]](https://arxiv.org/pdf/TODO)**
+**[[Extension Paper]](https://arxiv.org/pdf/2304.13615.pdf)**
 
 :bell: We are happy to announce that HRDA was accepted at **ECCV22**. :bell:
 
 :bell: We are happy to announce that our follow-up work [[MIC]](https://github.com/lhoyer/MIC) on context-enhanced UDA was accepted at **CVPR23**. :bell:
 
-:bell: We further extend HRDA to domain generalization and clear-to-adverse-weather UDA in the **[[Extension Paper]](https://arxiv.org/pdf/TODO)**. :bell:
+:bell: We further extend HRDA to domain generalization and clear-to-adverse-weather UDA in the **[[Extension Paper]](https://arxiv.org/pdf/2304.13615.pdf)**. :bell:
 
 ## Overview
 
@@ -52,7 +52,7 @@ of access to target images. Also in domain generalization,
 HRDA significantly improves the state-of-the-art performance by **+4.2 mIoU**.
 
 For more information on HRDA, please check our
-[[ECCV Paper]](https://arxiv.org/pdf/2204.13132) and the [[Extension Paper]](TODO).
+[[ECCV Paper]](https://arxiv.org/pdf/2204.13132) and the [[Extension Paper]](https://arxiv.org/pdf/2304.13615.pdf).
 
 If you find HRDA useful in your research, please consider citing:
 
@@ -67,7 +67,7 @@ If you find HRDA useful in your research, please consider citing:
 @Article{hoyer2023domain,
   title={Domain Adaptive and Generalizable Network Architectures and Training Strategies for Semantic Image Segmentation},
   author={Hoyer, Lukas and Dai, Dengxin and Van Gool, Luc},
-  journal={arXiv preprint arXiv:TODO},
+  journal={arXiv preprint arXiv:2304.13615},
   year={2023}
 }
 ```
@@ -91,7 +91,7 @@ Cityscapes→ACDC and Cityscapes→DarkZurich.
 | DAFormer (Ours) [8] | 68.3           | 60.9               | 55.4&ast;     | 53.8&ast;           |
 | HRDA (Ours)         | **73.8**       | **65.8**           | **68.0***     | **55.9***           |
 
-&ast; New results of our [extension paper](TODO)
+&ast; New results of our [extension paper](https://arxiv.org/pdf/2304.13615.pdf)
 
 References:
 
@@ -118,7 +118,7 @@ HRDA and DAFormer significantly outperform previous works on domain generalizati
 | DAFormer (Ours) [6] | 52.65&ast;     | 47.89&ast;     | 54.66&ast;       | 51.73&ast;     |
 | HRDA (Ours)         | **57.41&ast;** | **49.11&ast;** | **61.16&ast;**   | **55.90&ast;** |
 
-&ast; New results of our [extension paper](TODO)
+&ast; New results of our [extension paper](https://arxiv.org/pdf/2304.13615.pdf)
 
 References:
 
