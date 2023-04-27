@@ -311,7 +311,7 @@ HRDA/DAFormer for domain generalization (DG) is located on the DG branch, which 
 be checked out with:
 
 ```shell
-`git checkout dg
+git checkout dg
 ```
 
 They can be trained for DG using:
