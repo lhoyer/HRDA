@@ -148,13 +148,9 @@ pip install -r requirements.txt -f https://download.pytorch.org/whl/torch_stable
 pip install mmcv-full==1.3.7  # requires the other packages to be installed first
 ```
 
-Further, please download the MiT weights from SegFormer using the
-following script. If problems occur with the automatic download, please follow
-the instructions for a manual download within the script.
-
-```shell
-sh tools/download_checkpoints.sh
-```
+Please, download the MiT-B5 ImageNet weights provided by [SegFormer](https://github.com/NVlabs/SegFormer?tab=readme-ov-file#training)
+from their [OneDrive](https://connecthkuhk-my.sharepoint.com/:f:/g/personal/xieenze_connect_hku_hk/EvOn3l1WyM5JpnMQFSEO5b8B7vrHw9kDaJGII-3N9KNhrg?e=cpydzZ) and put them in the folder `pretrained/`.
+Further, download the checkpoint of [HRDA on GTA→Cityscapes](https://drive.google.com/file/d/1O6n1HearrXHZTHxNRWp8HCMyqbulKcSW/view?usp=sharing) and extract it to the folder `work_dirs/`.
 
 ## Setup Datasets
 
@@ -248,8 +244,7 @@ python tools/convert_datasets/mapillary.py data/mapillary/ --nproc 8
 
 ## Testing & Predictions
 
-The provided HRDA checkpoint trained on GTA→Cityscapes
-(already downloaded by `tools/download_checkpoints.sh`) can be tested on the
+The provided HRDA checkpoint trained on GTA→Cityscapes can be tested on the
 Cityscapes validation set using:
 
 ```shell
